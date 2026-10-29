@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Scissors, Calendar, UserCheck, LayoutDashboard } from "lucide-react";
+import { Scissors, Calendar, UserCheck, LayoutDashboard, Lock, Shield, User } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { AuthUser } from "../types";
 
@@ -11,6 +11,7 @@ interface HeaderProps {
   onLogout: () => void;
   currentView: "home" | "dashboard";
   onNavigate: (view: "home" | "dashboard") => void;
+  onGoToBooking?: () => void;
 }
 
 export function Header({
@@ -19,7 +20,21 @@ export function Header({
   onLogout,
   currentView,
   onNavigate,
+  onGoToBooking,
 }: HeaderProps) {
+  const handleBookingClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onGoToBooking) {
+      onGoToBooking();
+    } else {
+      onNavigate("home");
+      setTimeout(() => {
+        const el = document.getElementById("agendamento");
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-neutral-950/80 border-b border-neutral-200 dark:border-neutral-800 transition-colors">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -48,7 +63,7 @@ export function Header({
           </div>
         </div>
 
-        {/* Navegação */}
+        {/* Navegação Principal */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-neutral-600 dark:text-neutral-300">
           <button
             onClick={() => onNavigate("home")}
@@ -58,13 +73,15 @@ export function Header({
           >
             Início & Serviços
           </button>
+
           <a
             href="#agendamento"
-            onClick={() => onNavigate("home")}
-            className="transition-colors hover:text-amber-500"
+            onClick={handleBookingClick}
+            className="transition-colors hover:text-amber-500 cursor-pointer"
           >
             Agendar Horário
           </a>
+
           <button
             onClick={() => onNavigate("dashboard")}
             className={`flex items-center gap-1.5 transition-colors hover:text-amber-500 ${
@@ -72,7 +89,18 @@ export function Header({
             }`}
           >
             <LayoutDashboard className="w-4 h-4" />
-            Painel da Agenda
+            <span>Painel da Agenda</span>
+            {currentUser?.role === "client" ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/20">
+                Minhas Reservas
+              </span>
+            ) : currentUser?.role === "professional" ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 font-bold border border-blue-500/20">
+                Minha Agenda
+              </span>
+            ) : !currentUser ? (
+              <Lock className="w-3 h-3 text-neutral-400 dark:text-neutral-500 ml-0.5" />
+            ) : null}
           </button>
         </nav>
 
@@ -95,7 +123,7 @@ export function Header({
               </div>
               <button
                 onClick={onLogout}
-                className="ml-1 text-xs text-neutral-500 hover:text-red-500 transition-colors"
+                className="ml-1 text-xs text-neutral-500 hover:text-red-500 transition-colors font-medium px-1.5 py-0.5 rounded hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50"
                 title="Sair do perfil"
               >
                 Sair
@@ -115,4 +143,3 @@ export function Header({
     </header>
   );
 }
-

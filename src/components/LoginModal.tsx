@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Lock, Mail, Shield, User, Scissors } from "lucide-react";
 import { AuthUser, UserRole } from "../types";
+import { DEMO_ACCOUNTS, authenticate } from "../lib/access";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -10,80 +11,36 @@ interface LoginModalProps {
   onLoginSuccess: (user: AuthUser) => void;
 }
 
+const ROLE_ICON: Record<UserRole, React.ReactNode> = {
+  admin: <Shield className="w-4 h-4 text-amber-500" />,
+  professional: <Scissors className="w-4 h-4 text-blue-500" />,
+  client: <User className="w-4 h-4 text-emerald-500" />,
+};
+
 export function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps) {
-  const [email, setEmail] = useState("admin@calendlyhair.local");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState(DEMO_ACCOUNTS[0].user.email);
+  const [password, setPassword] = useState(DEMO_ACCOUNTS[0].password);
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const demoAccounts = [
-    {
-      role: "admin" as UserRole,
-      label: "Administrador",
-      email: "admin@calendlyhair.local",
-      pass: "admin123",
-      icon: <Shield className="w-4 h-4 text-amber-500" />,
-    },
-    {
-      role: "professional" as UserRole,
-      label: "Profissional",
-      email: "profissional@calendlyhair.local",
-      pass: "pro123",
-      icon: <Scissors className="w-4 h-4 text-blue-500" />,
-    },
-    {
-      role: "client" as UserRole,
-      label: "Cliente",
-      email: "cliente@calendlyhair.local",
-      pass: "cliente123",
-      icon: <User className="w-4 h-4 text-emerald-500" />,
-    },
-  ];
-
-  const handleSelectDemo = (acc: typeof demoAccounts[0]) => {
-    setEmail(acc.email);
-    setPassword(acc.pass);
+  const handleSelectDemo = (account: typeof DEMO_ACCOUNTS[0]) => {
+    setEmail(account.user.email);
+    setPassword(account.password);
     setError(null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (email === "admin@calendlyhair.local" && password === "admin123") {
-      onLoginSuccess({
-        id: "usr-admin",
-        name: "Administrador do Salão",
-        email,
-        role: "admin",
-      });
-      onClose();
+    const user = authenticate(email, password);
+    if (!user) {
+      setError("Credenciais inválidas. Use um dos perfis de demonstração abaixo.");
       return;
     }
 
-    if (email === "profissional@calendlyhair.local" && password === "pro123") {
-      onLoginSuccess({
-        id: "usr-pro",
-        name: "Gabriel Martins (Barbeiro)",
-        email,
-        role: "professional",
-      });
-      onClose();
-      return;
-    }
-
-    if (email === "cliente@calendlyhair.local" && password === "cliente123") {
-      onLoginSuccess({
-        id: "usr-client",
-        name: "Lucas Rocha",
-        email,
-        role: "client",
-      });
-      onClose();
-      return;
-    }
-
-    setError("Credenciais inválidas. Use um dos perfis de demonstração abaixo.");
+    onLoginSuccess(user);
+    onClose();
   };
 
   return (
@@ -156,17 +113,24 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
           <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block mb-2.5">
             Preenchimento Rápido (Ambiente de Teste):
           </span>
-          <div className="grid grid-cols-3 gap-2">
-            {demoAccounts.map((acc) => (
+          <div className="grid grid-cols-1 gap-2">
+            {DEMO_ACCOUNTS.map((account) => (
               <button
-                key={acc.role}
+                key={account.user.id}
                 type="button"
-                onClick={() => handleSelectDemo(acc)}
-                className="p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950/60 hover:border-amber-500 text-left transition-colors flex flex-col items-center text-center"
+                onClick={() => handleSelectDemo(account)}
+                className={`p-2.5 rounded-xl border bg-neutral-50 dark:bg-neutral-950/60 hover:border-amber-500 text-left transition-colors flex items-center gap-2.5 ${
+                  email === account.user.email
+                    ? "border-amber-500"
+                    : "border-neutral-200 dark:border-neutral-800"
+                }`}
               >
-                {acc.icon}
-                <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mt-1">
-                  {acc.label}
+                {ROLE_ICON[account.user.role]}
+                <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                  {account.label}
+                </span>
+                <span className="ml-auto text-[10px] text-neutral-400 font-mono">
+                  {account.user.email}
                 </span>
               </button>
             ))}
@@ -176,4 +140,3 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
     </div>
   );
 }
-

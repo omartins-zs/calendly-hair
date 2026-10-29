@@ -10,19 +10,28 @@ import { BookingModal } from "../components/BookingModal";
 import { DashboardView } from "../components/DashboardView";
 import { LoginModal } from "../components/LoginModal";
 import { StorageManager } from "../lib/storage";
-import { INITIAL_SERVICES, INITIAL_PROFESSIONALS } from "../data/initialData";
+import { INITIAL_SERVICES, INITIAL_PROFESSIONALS, INITIAL_BOOKINGS } from "../data/initialData";
 import { Service, Professional, Booking, AuthUser, BookingStatus } from "../types";
-import { Scissors, CalendarCheck, Sparkles, UserCheck } from "lucide-react";
+import { Scissors, CalendarCheck, Sparkles, UserCheck, CheckCircle2 } from "lucide-react";
 
 export default function Home() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [professionals, setProfessionals] = useState<Professional[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [services, setServices] = useState<Service[]>(INITIAL_SERVICES);
+  const [professionals, setProfessionals] = useState<Professional[]>(INITIAL_PROFESSIONALS);
+  const [bookings, setBookings] = useState<Booking[]>(INITIAL_BOOKINGS);
 
   // Seleções do fluxo de agendamento
   const [selectedService, setSelectedService] = useState<Service | null>(INITIAL_SERVICES[0]);
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(INITIAL_PROFESSIONALS[0]);
-  const [selectedDate, setSelectedDate] = useState<string>("2026-11-03");
+
+  const getTodayDate = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDate());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
   // Modais e navegação
@@ -30,33 +39,49 @@ export default function Home() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"home" | "dashboard">("home");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [highlightBooking, setHighlightBooking] = useState(false);
 
   useEffect(() => {
-    // Carrega dados iniciais da persistência
+    // Carrega dados da persistência com fallback garantido
     const loadedServices = StorageManager.getServices();
     const loadedPros = StorageManager.getProfessionals();
     const loadedBookings = StorageManager.getBookings();
+    const savedUser = StorageManager.getAuthUser();
 
-    setServices(loadedServices);
-    setProfessionals(loadedPros);
-    setBookings(loadedBookings);
+    const validServices = loadedServices && loadedServices.length > 0 ? loadedServices : INITIAL_SERVICES;
+    const validPros = loadedPros && loadedPros.length > 0 ? loadedPros : INITIAL_PROFESSIONALS;
+    const validBookings = loadedBookings && loadedBookings.length > 0 ? loadedBookings : INITIAL_BOOKINGS;
 
-    // Inicializa seleção padrão
-    if (loadedServices.length > 0) {
-      setSelectedService(loadedServices[0]);
+    setServices(validServices);
+    setProfessionals(validPros);
+    setBookings(validBookings);
+
+    setSelectedService((prev) => prev || validServices[0]);
+    setSelectedProfessional((prev) => prev || validPros[0]);
+
+    if (savedUser) {
+      setCurrentUser(savedUser);
     }
-    if (loadedPros.length > 0) {
-      setSelectedProfessional(loadedPros[0]);
-    }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getTodayDate();
     setSelectedDate(todayStr);
   }, []);
 
-  const handleStartBookingScroll = () => {
-    const el = document.getElementById("agendamento");
-    if (el && typeof el.scrollIntoView === "function") {
-      el.scrollIntoView({ behavior: "smooth" });
+  const handleGoToBooking = () => {
+    const doScroll = () => {
+      const el = document.getElementById("agendamento");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        setHighlightBooking(true);
+        setTimeout(() => setHighlightBooking(false), 2500);
+      }
+    };
+
+    if (currentView !== "home") {
+      setCurrentView("home");
+      setTimeout(doScroll, 120);
+    } else {
+      doScroll();
     }
   };
 
@@ -79,9 +104,16 @@ export default function Home() {
 
   const handleLoginSuccess = (user: AuthUser) => {
     setCurrentUser(user);
+    StorageManager.setAuthUser(user);
     if (user.role === "admin" || user.role === "professional") {
       setCurrentView("dashboard");
     }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    StorageManager.setAuthUser(null);
+    setCurrentView("home");
   };
 
   return (
@@ -89,10 +121,44 @@ export default function Home() {
       <Header
         currentUser={currentUser}
         onOpenLogin={() => setIsLoginModalOpen(true)}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={handleLogout}
         currentView={currentView}
         onNavigate={setCurrentView}
+        onGoToBooking={handleGoToBooking}
       />
+
+      {/* Banner de Boas-Vindas de Usuário Conectado */}
+      {currentUser && currentView === "home" && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-500/20 py-2.5 px-4 text-xs animate-in fade-in">
+          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-neutral-700 dark:text-neutral-300">
+                Conectado como <strong className="text-neutral-900 dark:text-white">{currentUser.name}</strong> (
+                <span className="capitalize">{currentUser.role}</span>).
+                {currentUser.role === "client" &&
+                  " Seus dados serão preenchidos automaticamente na confirmação do agendamento."}
+                {currentUser.role === "professional" &&
+                  " Você pode gerenciar seus atendimentos pelo painel da agenda."}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setCurrentView("dashboard")}
+                className="text-amber-600 dark:text-amber-400 font-semibold hover:underline"
+              >
+                {currentUser.role === "client" ? "Ver Minhas Reservas" : "Acessar Painel da Agenda"}
+              </button>
+              <button
+                onClick={handleGoToBooking}
+                className="text-amber-600 dark:text-amber-400 font-semibold hover:underline"
+              >
+                Agendar Horário
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {currentView === "dashboard" ? (
         <main className="flex-1">
@@ -100,11 +166,14 @@ export default function Home() {
             bookings={bookings}
             onUpdateStatus={handleUpdateBookingStatus}
             onBackToHome={() => setCurrentView("home")}
+            currentUser={currentUser}
+            onOpenLogin={() => setIsLoginModalOpen(true)}
+            onGoToBooking={handleGoToBooking}
           />
         </main>
       ) : (
         <main className="flex-1">
-          <HeroSection onStartBooking={handleStartBookingScroll} />
+          <HeroSection onStartBooking={handleGoToBooking} />
 
           {/* Seção de Serviços */}
           <section id="servicos" className="py-12 max-w-6xl mx-auto px-4">
@@ -165,8 +234,24 @@ export default function Home() {
           </section>
 
           {/* Seção Calendly de Seleção de Horário */}
-          <section id="agendamento" className="py-12 max-w-6xl mx-auto px-4 border-t border-neutral-200/80 dark:border-neutral-800/80 scroll-mt-20">
-            <div className="p-6 sm:p-10 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/40 shadow-sm">
+          <section
+            id="agendamento"
+            className="py-12 max-w-6xl mx-auto px-4 border-t border-neutral-200/80 dark:border-neutral-800/80 scroll-mt-24"
+          >
+            <div
+              className={`p-6 sm:p-10 rounded-3xl border bg-white dark:bg-neutral-900/40 shadow-sm transition-all duration-500 ${
+                highlightBooking
+                  ? "ring-4 ring-amber-500/60 border-amber-500 shadow-xl shadow-amber-500/10 scale-[1.01]"
+                  : "border-neutral-200 dark:border-neutral-800"
+              }`}
+            >
+              {highlightBooking && (
+                <div className="mb-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500 text-white text-xs font-bold animate-bounce">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Selecione a data e o horário para agendar seu atendimento:</span>
+                </div>
+              )}
+
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 mb-8 border-b border-neutral-100 dark:border-neutral-800">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
@@ -235,6 +320,8 @@ export default function Home() {
           date={selectedDate}
           time={selectedTime}
           onBookingConfirmed={handleConfirmNewBooking}
+          currentUser={currentUser}
+          onOpenLogin={() => setIsLoginModalOpen(true)}
         />
       )}
 

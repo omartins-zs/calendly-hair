@@ -56,5 +56,12 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  /**
+   * Preenchido apenas para contas de profissional. Vincula o usuário logado ao
+   * seu registro em Professional, permitindo escopar a agenda ao próprio dono.
+   */
+  professionalId?: string;
+  /** Telefone padrão usado para pré-preencher o formulário de clientes logados. */
+  phone?: string;
 }
 

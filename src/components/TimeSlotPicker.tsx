@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { Calendar as CalendarIcon, Clock, AlertCircle } from "lucide-react";
+import React, { useMemo, useRef } from "react";
+import { Calendar as CalendarIcon, Clock, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Professional, Service, Booking } from "../types";
 import { generateTimeSlots, formatDateBr } from "../lib/bookingEngine";
 
@@ -24,6 +24,8 @@ export function TimeSlotPicker({
   onSelectTime,
   existingBookings,
 }: TimeSlotPickerProps) {
+  const datesContainerRef = useRef<HTMLDivElement>(null);
+
   // Gera os próximos 14 dias úteis a partir de hoje
   const upcomingDays = useMemo(() => {
     const days: { dateStr: string; label: string; weekDay: string; available: boolean }[] = [];
@@ -65,18 +67,50 @@ export function TimeSlotPicker({
     });
   }, [selectedDate, selectedProfessional, selectedService, existingBookings]);
 
+  const handleScrollDates = (direction: "left" | "right") => {
+    if (datesContainerRef.current) {
+      const scrollAmount = direction === "left" ? -240 : 240;
+      datesContainerRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 1. Seleção de Data */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
-          <CalendarIcon className="w-4 h-4 text-amber-500" />
-          <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
-            1. Selecione a Data
-          </h4>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="w-4 h-4 text-amber-500" />
+            <h4 className="text-sm font-semibold text-neutral-900 dark:text-white">
+              1. Selecione a Data
+            </h4>
+          </div>
+
+          {/* Controles de Navegação Horizontal */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => handleScrollDates("left")}
+              aria-label="Dias anteriores"
+              className="p-1 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleScrollDates("right")}
+              aria-label="Próximos dias"
+              className="p-1 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <div
+          ref={datesContainerRef}
+          className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none no-scrollbar scroll-smooth"
+        >
           {upcomingDays.map((day) => {
             const isSelected = selectedDate === day.dateStr;
             return (
@@ -87,12 +121,12 @@ export function TimeSlotPicker({
                 onClick={() => {
                   onSelectDate(day.dateStr);
                 }}
-                className={`flex flex-col items-center justify-center min-w-[72px] py-3 px-2 rounded-2xl border transition-all text-center ${
+                className={`flex flex-col items-center justify-center min-w-[76px] py-3 px-2.5 rounded-2xl border transition-all text-center select-none ${
                   !day.available
                     ? "opacity-35 cursor-not-allowed bg-neutral-100 dark:bg-neutral-900 border-dashed border-neutral-200 dark:border-neutral-800"
                     : isSelected
-                    ? "border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/20"
-                    : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 text-neutral-800 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700"
+                    ? "border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/20 scale-[1.02]"
+                    : "border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/60 text-neutral-800 dark:text-neutral-200 hover:border-amber-500/50 hover:bg-amber-500/5"
                 }`}
               >
                 <span
@@ -151,7 +185,7 @@ export function TimeSlotPicker({
                       ? "bg-neutral-100 dark:bg-neutral-900/40 text-neutral-400 dark:text-neutral-600 border-neutral-200 dark:border-neutral-800/80 cursor-not-allowed line-through"
                       : isSelected
                       ? "bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20 scale-[1.03]"
-                      : "bg-white dark:bg-neutral-900/70 border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 hover:border-amber-500/50 hover:bg-amber-500/5"
+                      : "bg-white dark:bg-neutral-900/70 border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 hover:border-amber-500/50 hover:bg-amber-500/5 cursor-pointer active:scale-95"
                   }`}
                 >
                   <span>{slot.time}</span>
@@ -164,4 +198,3 @@ export function TimeSlotPicker({
     </div>
   );
 }
-

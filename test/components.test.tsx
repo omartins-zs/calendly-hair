@@ -82,6 +82,10 @@ describe("Componente Header", () => {
     fireEvent.click(screen.getByText(/Painel da Agenda/i));
     expect(onNavigate).toHaveBeenCalledWith("dashboard");
 
+    // "Agendar Horário" sem onGoToBooking cai no fallback de navegação
+    fireEvent.click(screen.getByText("Agendar Horário"));
+    expect(onNavigate).toHaveBeenCalledWith("home");
+
     const loginBtn = screen.getByText("Acessar");
     fireEvent.click(loginBtn);
     expect(onOpenLogin).toHaveBeenCalledTimes(1);
@@ -263,10 +267,13 @@ describe("Componente BookingModal", () => {
 
     fireEvent.submit(screen.getByTestId("booking-form"));
 
-    // Deve exibir recibo de sucesso com código de agendamento
-    expect(await screen.findByText(/Agendamento Confirmado/i)).toBeDefined();
-    expect(screen.getByText(/Tudo pronto para seu atendimento!/i)).toBeDefined();
+    // Deve exibir recibo de sucesso (reserva criada como pendente)
+    expect(await screen.findByText(/Solicitação Enviada/i)).toBeDefined();
+    expect(screen.getByText(/Recebemos o seu pedido de agendamento!/i)).toBeDefined();
     expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "pendente" })
+    );
 
     // Conclui e fecha
     const finishBtn = screen.getByText(/Concluir & Voltar ao Início/i);
@@ -332,23 +339,31 @@ describe("Componente DashboardView", () => {
       },
     ];
 
+    const adminUser = {
+      id: "usr-admin",
+      name: "Administrador do Salão",
+      email: "admin@calendlyhair.local",
+      role: "admin" as const,
+    };
+
     const { rerender } = render(
       <DashboardView
         bookings={mockMixedBookings}
         onUpdateStatus={onUpdateStatus}
         onBackToHome={onBack}
+        currentUser={adminUser}
       />
     );
 
     expect(screen.getByText(/Painel da Agenda & Atendimentos/i)).toBeDefined();
-    expect(screen.getByText(/Faturamento Estimado/i)).toBeDefined();
+    expect(screen.getByText("Faturamento Estimado")).toBeDefined();
 
     // Filtra por status "cancelado"
-    fireEvent.click(screen.getByRole("button", { name: "cancelado" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelado" }));
     expect(screen.getByText("Cliente Cancelado")).toBeDefined();
 
     // Filtra por status "todos"
-    fireEvent.click(screen.getByRole("button", { name: "todos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Todos" }));
 
     // Busca por cliente
     const searchInput = screen.getByPlaceholderText(/Pesquisar por cliente/i);
@@ -356,7 +371,7 @@ describe("Componente DashboardView", () => {
     expect(screen.getByText("Rodrigo Almeida")).toBeDefined();
 
     // Filtra por status "confirmado"
-    const confirmedFilterBtn = screen.getByRole("button", { name: "confirmado" });
+    const confirmedFilterBtn = screen.getByRole("button", { name: "Confirmado" });
     fireEvent.click(confirmedFilterBtn);
 
     // Concluir agendamento
@@ -380,10 +395,119 @@ describe("Componente DashboardView", () => {
         bookings={[]}
         onUpdateStatus={vi.fn()}
         onBackToHome={vi.fn()}
+        currentUser={{
+          id: "usr-admin",
+          name: "Administrador do Salão",
+          email: "admin@calendlyhair.local",
+          role: "admin",
+        }}
       />
     );
 
     expect(screen.getByText(/Nenhum agendamento encontrado/i)).toBeDefined();
+  });
+
+  it("bloqueia o painel para visitantes não autenticados", () => {
+    const onOpenLogin = vi.fn();
+    render(
+      <DashboardView
+        bookings={INITIAL_BOOKINGS}
+        onUpdateStatus={vi.fn()}
+        onBackToHome={vi.fn()}
+        currentUser={null}
+        onOpenLogin={onOpenLogin}
+      />
+    );
+
+    expect(screen.getByText(/Área Restrita/i)).toBeDefined();
+    fireEvent.click(screen.getByText(/Fazer Login/i));
+    expect(onOpenLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it("escopa a agenda ao profissional logado e permite confirmar", () => {
+    const onUpdateStatus = vi.fn();
+    const proUser = {
+      id: "usr-pro-thiago",
+      name: "Thiago Silva",
+      email: "thiago@calendlyhair.local",
+      role: "professional" as const,
+      professionalId: "pro-thiago",
+    };
+
+    render(
+      <DashboardView
+        bookings={INITIAL_BOOKINGS}
+        onUpdateStatus={onUpdateStatus}
+        onBackToHome={vi.fn()}
+        currentUser={proUser}
+      />
+    );
+
+    // Vê apenas o agendamento do Thiago (BK-1002); não vê os do Gabriel.
+    expect(screen.getByText("Marcos Vinicius")).toBeDefined();
+    expect(screen.queryByText("Rodrigo Almeida")).toBeNull();
+  });
+
+  it("cliente vê apenas as próprias reservas e pode cancelá-las", () => {
+    const onUpdateStatus = vi.fn();
+    const onBackToHome = vi.fn();
+    const clientUser = {
+      id: "usr-client",
+      name: "Lucas Rocha",
+      email: "cliente@calendlyhair.local",
+      role: "client" as const,
+    };
+
+    render(
+      <DashboardView
+        bookings={INITIAL_BOOKINGS}
+        onUpdateStatus={onUpdateStatus}
+        onBackToHome={onBackToHome}
+        currentUser={clientUser}
+      />
+    );
+
+    // Apenas a reserva vinculada ao e-mail do cliente (BK-1003).
+    expect(screen.getByText("Lucas Rocha")).toBeDefined();
+    expect(screen.queryByText("Marcos Vinicius")).toBeNull();
+
+    // Cliente não confirma nem conclui, mas pode cancelar.
+    expect(screen.queryByText("Concluir")).toBeNull();
+    const cancelBtn = screen.getByText("Cancelar");
+    fireEvent.click(cancelBtn);
+    expect(onUpdateStatus).toHaveBeenCalledWith("BK-1003", "cancelado");
+
+    // Sem onGoToBooking, "Novo Agendamento" cai no fallback onBackToHome.
+    fireEvent.click(screen.getByText(/Novo Agendamento/i));
+    expect(onBackToHome).toHaveBeenCalledTimes(1);
+  });
+
+  it("permite que um membro da equipe (admin) abra o modal e feche", () => {
+    const onClose = vi.fn();
+    render(
+      <BookingModal
+        isOpen={true}
+        onClose={onClose}
+        service={INITIAL_SERVICES[0]}
+        professional={INITIAL_PROFESSIONALS[0]}
+        date="2099-12-31"
+        time="10:00"
+        onBookingConfirmed={vi.fn()}
+        currentUser={{
+          id: "a",
+          name: "Admin",
+          email: "admin@calendlyhair.local",
+          role: "admin",
+        }}
+      />
+    );
+
+    // Staff não vê aviso de cliente logado nem o convite de login.
+    expect(screen.queryByText(/Seus dados foram preenchidos/i)).toBeNull();
+    expect(screen.queryByText(/Fazer login rápido/i)).toBeNull();
+
+    fireEvent.click(screen.getByLabelText("Fechar"));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -402,12 +526,14 @@ describe("Componente LoginModal", () => {
     fireEvent.click(screen.getByText("Entrar no Painel"));
     expect(onLogin).toHaveBeenCalledWith(expect.objectContaining({ role: "admin" }));
 
-    // 2. Profissional
+    // 2. Profissional (vinculado ao seu professionalId)
     rerender(<LoginModal isOpen={true} onClose={onClose} onLoginSuccess={onLogin} />);
-    const proDemoBtn = screen.getByText("Profissional");
+    const proDemoBtn = screen.getByText("Gabriel (Profissional)");
     fireEvent.click(proDemoBtn);
     fireEvent.click(screen.getByText("Entrar no Painel"));
-    expect(onLogin).toHaveBeenCalledWith(expect.objectContaining({ role: "professional" }));
+    expect(onLogin).toHaveBeenCalledWith(
+      expect.objectContaining({ role: "professional", professionalId: "pro-gabriel" })
+    );
 
     // 3. Cliente
     rerender(<LoginModal isOpen={true} onClose={onClose} onLoginSuccess={onLogin} />);
@@ -442,6 +568,21 @@ describe("Fluxo Integrado - Home Page", () => {
     StorageManager.reset();
   });
 
+  it("restaura a sessão persistida ao carregar a página", async () => {
+    StorageManager.setAuthUser({
+      id: "usr-admin",
+      name: "Administrador do Salão",
+      email: "admin@calendlyhair.local",
+      role: "admin",
+    });
+
+    render(<Home />);
+
+    // Sessão restaurada: header e banner mostram o usuário e a opção de sair.
+    expect((await screen.findAllByText("Administrador do Salão")).length).toBeGreaterThan(0);
+    expect(screen.getByText("Sair")).toBeDefined();
+  });
+
   it("renderiza a página inicial, interage com seleção e abre agendamento", async () => {
     render(<Home />);
 
@@ -460,13 +601,20 @@ describe("Fluxo Integrado - Home Page", () => {
     const heroBtn = screen.getByText(/Escolher Serviço & Agendar/i);
     fireEvent.click(heroBtn);
 
+    // Seleciona outra data na grade (dispara onSelectDate na Home)
+    const dayButtons = screen.getAllByRole("button", { name: /\d{2}\/\d{2}/ });
+    if (dayButtons.length > 1) {
+      fireEvent.click(dayButtons[1]);
+    }
+
     // Navega ao Painel da Agenda e volta
     const navDashboardBtn = screen.getByText(/Painel da Agenda/i);
     fireEvent.click(navDashboardBtn);
 
     expect(await screen.findByText(/Painel da Agenda & Atendimentos/i)).toBeDefined();
 
-    const backBtn = screen.getByText(/Voltar para Vitrine Pública/i);
+    // Visitante não logado: painel restrito, volta pela ação "Agendar sem login"
+    const backBtn = screen.getByText(/Agendar sem login/i);
     fireEvent.click(backBtn);
 
     expect(await screen.findByText(/Escolha o Serviço Desejado/i)).toBeDefined();
@@ -513,8 +661,140 @@ describe("Fluxo Integrado - Home Page", () => {
     // Submete formulário
     fireEvent.submit(screen.getByTestId("booking-form"));
 
-    // Valida confirmação e conclui
-    expect(await screen.findByText(/Agendamento Confirmado/i)).toBeDefined();
+    // Valida recibo (reserva pendente) e conclui
+    expect(await screen.findByText(/Solicitação Enviada/i)).toBeDefined();
     fireEvent.click(screen.getByText(/Concluir & Voltar ao Início/i));
+  });
+
+  it("profissional loga, vê apenas a sua agenda e faz logout", async () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByText("Acessar"));
+    fireEvent.click(screen.getByText("Gabriel (Profissional)"));
+    fireEvent.click(screen.getByText("Entrar no Painel"));
+
+    // Vai direto ao painel; escopo mostra só os atendimentos do Gabriel
+    expect(await screen.findByText(/Painel da Agenda & Atendimentos/i)).toBeDefined();
+    expect(screen.getByText("Rodrigo Almeida")).toBeDefined();
+    expect(screen.queryByText("Marcos Vinicius")).toBeNull();
+
+    // Logout volta para a vitrine pública
+    fireEvent.click(screen.getByText("Sair"));
+    expect(await screen.findByText(/Escolha o Serviço Desejado/i)).toBeDefined();
+  });
+
+  it("cliente loga, permanece na vitrine e acessa suas reservas", async () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByText("Acessar"));
+    fireEvent.click(screen.getByText("Cliente"));
+    fireEvent.click(screen.getByText("Entrar no Painel"));
+
+    // Cliente não é levado ao painel automaticamente: segue na vitrine
+    expect(await screen.findByText(/Escolha o Serviço Desejado/i)).toBeDefined();
+
+    // Banner de boas-vindas leva às reservas do cliente
+    fireEvent.click(screen.getByText(/Ver Minhas Reservas/i));
+    expect(await screen.findByText(/Painel da Agenda & Atendimentos/i)).toBeDefined();
+
+    // "Novo Agendamento" volta à vitrine (currentView dashboard -> home)
+    fireEvent.click(screen.getByText(/Novo Agendamento/i));
+    expect(await screen.findByText(/Escolha o Serviço Desejado/i)).toBeDefined();
+  });
+});
+
+describe("Header - variações por papel", () => {
+  it("renderiza selo e dados do profissional e aciona agendamento", () => {
+    const onGoToBooking = vi.fn();
+    render(
+      <Header
+        currentUser={{
+          id: "p",
+          name: "Thiago Silva",
+          email: "thiago@calendlyhair.local",
+          role: "professional",
+          professionalId: "pro-thiago",
+        }}
+        onOpenLogin={vi.fn()}
+        onLogout={vi.fn()}
+        currentView="dashboard"
+        onNavigate={vi.fn()}
+        onGoToBooking={onGoToBooking}
+      />
+    );
+
+    expect(screen.getByText("Minha Agenda")).toBeDefined();
+
+    // Link "Agendar Horário" usa o callback direto quando fornecido
+    fireEvent.click(screen.getByText("Agendar Horário"));
+    expect(onGoToBooking).toHaveBeenCalledTimes(1);
+  });
+
+  it("renderiza o selo de reservas do cliente", () => {
+    render(
+      <Header
+        currentUser={{
+          id: "c",
+          name: "Lucas Rocha",
+          email: "cliente@calendlyhair.local",
+          role: "client",
+        }}
+        onOpenLogin={vi.fn()}
+        onLogout={vi.fn()}
+        currentView="home"
+        onNavigate={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Minhas Reservas")).toBeDefined();
+  });
+});
+
+describe("BookingModal - variações por papel", () => {
+  it("pré-preenche e sinaliza cliente logado", () => {
+    render(
+      <BookingModal
+        isOpen={true}
+        onClose={vi.fn()}
+        service={INITIAL_SERVICES[0]}
+        professional={INITIAL_PROFESSIONALS[0]}
+        date="2099-12-31"
+        time="10:00"
+        onBookingConfirmed={vi.fn()}
+        currentUser={{
+          id: "c",
+          name: "Lucas Rocha",
+          email: "cliente@calendlyhair.local",
+          role: "client",
+          phone: "(11) 99887-7665",
+        }}
+      />
+    );
+
+    expect(screen.getByText(/Seus dados foram preenchidos automaticamente/i)).toBeDefined();
+    expect(screen.getByDisplayValue("Lucas Rocha")).toBeDefined();
+    expect(screen.getByDisplayValue("(11) 99887-7665")).toBeDefined();
+  });
+
+  it("oferece login rápido ao visitante", () => {
+    const onClose = vi.fn();
+    const onOpenLogin = vi.fn();
+    render(
+      <BookingModal
+        isOpen={true}
+        onClose={onClose}
+        service={INITIAL_SERVICES[0]}
+        professional={INITIAL_PROFESSIONALS[0]}
+        date="2099-12-31"
+        time="10:00"
+        onBookingConfirmed={vi.fn()}
+        currentUser={null}
+        onOpenLogin={onOpenLogin}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/Fazer login rápido/i));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onOpenLogin).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, CheckCircle2, Calendar, Clock, User, Scissors, AlertCircle } from "lucide-react";
-import { Service, Professional, Booking } from "../types";
+import React, { useState, useEffect } from "react";
+import { X, CheckCircle2, Calendar, Clock, User, Scissors, AlertCircle, ShieldCheck } from "lucide-react";
+import { Service, Professional, Booking, AuthUser } from "../types";
 import {
   formatCurrency,
   formatDateBr,
@@ -10,6 +10,7 @@ import {
   validateBookingInput,
   generateBookingCode,
 } from "../lib/bookingEngine";
+import { INITIAL_BOOKING_STATUS } from "../lib/access";
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ interface BookingModalProps {
   date: string;
   time: string;
   onBookingConfirmed: (booking: Booking) => void;
+  currentUser?: AuthUser | null;
+  onOpenLogin?: () => void;
 }
 
 export function BookingModal({
@@ -29,6 +32,8 @@ export function BookingModal({
   date,
   time,
   onBookingConfirmed,
+  currentUser,
+  onOpenLogin,
 }: BookingModalProps) {
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -36,6 +41,20 @@ export function BookingModal({
   const [notes, setNotes] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
+
+  useEffect(() => {
+    if (isOpen && currentUser && currentUser.role === "client") {
+      // Cliente logado: pré-preenche com os próprios dados.
+      setClientName(currentUser.name);
+      setClientEmail(currentUser.email);
+      setClientPhone(currentUser.phone ?? "");
+    } else if (isOpen) {
+      // Visitante (ou staff testando o fluxo): deixa limpo para digitar.
+      setClientName("");
+      setClientEmail("");
+      setClientPhone("");
+    }
+  }, [isOpen, currentUser]);
 
   if (!isOpen) return null;
 
@@ -75,7 +94,7 @@ export function BookingModal({
       clientPhone: clientPhone.trim(),
       notes: notes.trim() || undefined,
       price: service.price,
-      status: "confirmado",
+      status: INITIAL_BOOKING_STATUS,
       createdAt: new Date().toISOString(),
     };
 
@@ -85,9 +104,11 @@ export function BookingModal({
 
   const handleResetAndClose = () => {
     setConfirmedBooking(null);
-    setClientName("");
-    setClientEmail("");
-    setClientPhone("");
+    if (!currentUser || currentUser.role !== "client") {
+      setClientName("");
+      setClientEmail("");
+      setClientPhone("");
+    }
     setNotes("");
     setErrors({});
     onClose();
@@ -95,7 +116,7 @@ export function BookingModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 sm:p-8 overflow-hidden">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 sm:p-8 overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Botão Fechar */}
         <button
           onClick={handleResetAndClose}
@@ -114,11 +135,14 @@ export function BookingModal({
 
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-amber-500">
-                Agendamento Confirmado
+                Solicitação Enviada
               </span>
               <h3 className="text-2xl font-bold text-neutral-900 dark:text-white mt-1">
-                Tudo pronto para seu atendimento!
+                Recebemos o seu pedido de agendamento!
               </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                Status: <strong className="text-amber-600 dark:text-amber-400">Pendente</strong> — aguardando confirmação do salão.
+              </p>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                 Código da Reserva: <strong className="text-neutral-900 dark:text-white font-mono">{confirmedBooking.id}</strong>
               </p>
@@ -161,7 +185,7 @@ export function BookingModal({
         ) : (
           /* Formulário de Confirmação */
           <div>
-            <div className="mb-5">
+            <div className="mb-4">
               <h3 className="text-xl font-bold text-neutral-900 dark:text-white">
                 Finalizar Agendamento
               </h3>
@@ -170,8 +194,32 @@ export function BookingModal({
               </p>
             </div>
 
+            {/* Aviso de Login / Usuário Conectado */}
+            {currentUser?.role === "client" ? (
+              <div className="mb-4 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-500" />
+                <span>
+                  Logado como <strong>{currentUser.name}</strong>. Seus dados foram preenchidos automaticamente.
+                </span>
+              </div>
+            ) : !currentUser && onOpenLogin ? (
+              <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-neutral-600 dark:text-neutral-400 flex items-center justify-between">
+                <span>Já possui cadastro de cliente?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenLogin();
+                  }}
+                  className="font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                >
+                  Fazer login rápido
+                </button>
+              </div>
+            ) : null}
+
             {/* Resumo Rápido */}
-            <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 mb-6 grid grid-cols-2 gap-3 text-xs">
+            <div className="p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 mb-5 grid grid-cols-2 gap-3 text-xs">
               <div>
                 <span className="text-[10px] uppercase font-semibold text-amber-600 dark:text-amber-400">Serviço</span>
                 <p className="font-bold text-neutral-900 dark:text-white truncate">{service.name}</p>
@@ -191,7 +239,7 @@ export function BookingModal({
             </div>
 
             {/* Formulário */}
-            <form data-testid="booking-form" onSubmit={handleSubmit} className="space-y-4">
+            <form data-testid="booking-form" onSubmit={handleSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Nome Completo *

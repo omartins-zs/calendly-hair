@@ -109,4 +109,25 @@ describe("StorageManager", () => {
     StorageManager.reset();
     expect(StorageManager.getBookings().some((b) => b.id === "BK-TEMP")).toBe(false);
   });
+
+  it("persiste, lê e limpa o usuário autenticado", () => {
+    expect(StorageManager.getAuthUser()).toBeNull();
+
+    const user = {
+      id: "usr-pro-gabriel",
+      name: "Gabriel Martins",
+      email: "gabriel@calendlyhair.local",
+      role: "professional" as const,
+      professionalId: "pro-gabriel",
+    };
+    StorageManager.setAuthUser(user);
+    expect(StorageManager.getAuthUser()).toEqual(user);
+
+    // JSON corrompido cai no fallback de memória sem lançar
+    localStorage.setItem("calendly_hair_auth_user", "JSON_INVALIDO");
+    expect(StorageManager.getAuthUser()).toEqual(user);
+
+    StorageManager.setAuthUser(null);
+    expect(StorageManager.getAuthUser()).toBeNull();
+  });
 });

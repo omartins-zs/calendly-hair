@@ -139,5 +139,21 @@ export const INITIAL_BOOKINGS: Booking[] = [
     status: "confirmado",
     createdAt: "2026-10-28T16:00:00.000Z",
   },
+  {
+    id: "BK-1003",
+    serviceId: "serv-corte-degrade",
+    serviceName: "Corte Degradê / Fade Moderno",
+    professionalId: "pro-gabriel",
+    professionalName: "Gabriel Martins",
+    date: "2026-11-06",
+    startTime: "15:00",
+    endTime: "15:45",
+    clientName: "Lucas Rocha",
+    clientEmail: "cliente@calendlyhair.local",
+    clientPhone: "(11) 99887-7665",
+    notes: "Agendamento pelo portal do cliente",
+    price: 60.0,
+    status: "confirmado",
+    createdAt: "2026-10-29T10:00:00.000Z",
+  },
 ];
-
