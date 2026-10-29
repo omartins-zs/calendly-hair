@@ -117,3 +117,4 @@ Para forçar um rebuild completo sem cache:
 docker compose build --no-cache
 docker compose up -d
 ```
+

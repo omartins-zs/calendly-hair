@@ -166,3 +166,4 @@ Reinicie o servidor de desenvolvimento (`Ctrl + C` e execute `npm run dev` novam
 ## Próximo passo
 
 Para executar em ambiente containerizado isolado, consulte [COMO_EXECUTAR_DOCKER.md](COMO_EXECUTAR_DOCKER.md).
+

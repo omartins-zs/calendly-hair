@@ -74,3 +74,4 @@ http://localhost:3000
 - [ACESSOS_TESTES.md](ACESSOS_TESTES.md) — Credenciais e fluxos de teste
 - [COMO_EXECUTAR_LOCAL.md](COMO_EXECUTAR_LOCAL.md) — Passo a passo do ambiente local
 - [COMO_EXECUTAR_DOCKER.md](COMO_EXECUTAR_DOCKER.md) — Guia detalhado para Docker
+

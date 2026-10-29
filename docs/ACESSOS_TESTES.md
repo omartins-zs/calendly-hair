@@ -69,3 +69,4 @@ npm run start
 ### 📝 Observações:
 - Em ambiente local de desenvolvimento, utilize `npm run dev` para hot-reload em tempo real.
 - As credenciais acima são destinadas exclusivamente a testes de validação local e containers.
+
