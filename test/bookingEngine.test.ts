@@ -263,3 +263,4 @@ describe("bookingEngine - Formatação e Utilitários", () => {
     expect(code).toMatch(/^BK-\d{4}$/);
   });
 });
+

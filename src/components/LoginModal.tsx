@@ -176,3 +176,4 @@ export function LoginModal({ isOpen, onClose, onLoginSuccess }: LoginModalProps)
     </div>
   );
 }
+

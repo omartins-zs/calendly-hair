@@ -92,3 +92,4 @@ export const StorageManager = {
     memoryProfessionals = [...INITIAL_PROFESSIONALS];
   },
 };
+
