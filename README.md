@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-3.3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
   <img src="https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Coverage-99.6%25-brightgreen?style=for-the-badge&logo=vitest&logoColor=white" alt="Coverage" />
 </p>
 
 <p align="center">
@@ -16,7 +17,7 @@
 
 <cite>“Simplificando o agendamento de serviços de beleza com agilidade, elegância e modernidade.”</cite>
 
-<h4 align="center"> ⚙️ Calendly Hair 🚀 Em desenvolvimento ativo ⚡ </h4>
+<h4 align="center"> ✅ Calendly Hair 🚀 Concluído • 99.6% de Testes ⚡ </h4>
 
 </div>
 
@@ -105,6 +106,10 @@ npm run dev
 # 4. Compilar para produção
 npm run build
 npm run start
+
+# 5. Executar suite de testes e relatório de cobertura
+npm run test
+npm run test:coverage
 ```
 
 ### 🐳 Ambiente Containerizado (Docker)
